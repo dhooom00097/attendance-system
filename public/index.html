@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>🎓 إنشاء جلسة حضور جديدة</title>
+  <style>
+    body { font-family: 'Cairo', sans-serif; text-align: center; margin-top: 50px; direction: rtl; }
+    input, button { margin: 8px; padding: 10px; width: 250px; font-size: 16px; }
+    #qr { margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <h2>🎓 إنشاء جلسة حضور جديدة</h2>
+  <input type="text" id="course" placeholder="اسم المادة"><br>
+  <input type="text" id="section" placeholder="الشعبة / المجموعة"><br>
+  <input type="text" id="teacher" placeholder="اسم المعلم"><br>
+  <input type="number" id="lat" placeholder="إحداثي خط العرض (lat)"><br>
+  <input type="number" id="lng" placeholder="إحداثي خط الطول (lng)"><br>
+  <input type="number" id="radius" placeholder="نطاق القاعة بالمتر (مثلاً 50)"><br>
+  <input type="number" id="minutes" placeholder="مدة صلاحية QR بالدقائق"><br>
+  <button onclick="createSession()">توليد الكود ✅</button>
+
+  <div id="qr"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script>
+    // 🔹 تحديد الموقع تلقائي عند فتح الصفحة
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            document.getElementById('lat').value = position.coords.latitude.toFixed(6);
+            document.getElementById('lng').value = position.coords.longitude.toFixed(6);
+          },
+          (error) => {
+            alert("⚠️ لم يتم السماح بالوصول للموقع. الرجاء تفعيله يدويًا.");
+          }
+        );
+      } else {
+        alert("المتصفح لا يدعم تحديد الموقع");
+      }
+    }
+
+    // 🔹 إنشاء الجلسة
+    async function createSession() {
+      const payload = {
+        action: 'createSession',
+        courseName: document.getElementById('course').value,
+        section: document.getElementById('section').value,
+        teacherName: document.getElementById('teacher').value,
+        lat: parseFloat(document.getElementById('lat').value),
+        lng: parseFloat(document.getElementById('lng').value),
+        radiusMeters: parseFloat(document.getElementById('radius').value),
+        minutesValid: parseFloat(document.getElementById('minutes').value)
+      };
+
+      // ✅ تحقق من القيم قبل الإرسال
+      if (
+        isNaN(payload.lat) || 
+        isNaN(payload.lng) || 
+        isNaN(payload.radiusMeters) || 
+        isNaN(payload.minutesValid)
+      ) {
+        alert("⚠️ تأكد من إدخال الإحداثيات والأرقام بشكل صحيح (مثال: 24.7136)");
+        return;
+      }
+
+      // ✅ تأكد أن الإحداثيات موجودة
+      if (!payload.lat || !payload.lng) {
+        alert("📍 جاري تحديد موقعك... الرجاء الانتظار ثواني ثم المحاولة مرة أخرى");
+        return;
+      }
+
+      try {
+        const res = await fetch('http://localhost:3000/create-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        const qrDiv = document.getElementById('qr');
+        qrDiv.innerHTML = `<h3>رابط الجلسة:</h3><p>${data.url}</p>`;
+        const qr = new QRious({
+          element: document.createElement('canvas'),
+          value: data.url,
+          size: 250
+        });
+        qrDiv.appendChild(qr.element);
+
+      } catch (err) {
+        alert("❌ حدث خطأ أثناء إنشاء الجلسة: " + err.message);
+      }
+    }
+
+    // تشغيل تحديد الموقع عند تحميل الصفحة
+    window.onload = getLocation;
+  </script>
+</body>
+</html>

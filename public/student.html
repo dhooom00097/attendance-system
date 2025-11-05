@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>تسجيل حضور الطالب</title>
+  <style>
+    body { font-family: "Cairo", sans-serif; text-align: center; background: #f4f4f4; margin-top: 60px; }
+    input, button { margin: 6px; padding: 10px; font-size: 16px; width: 250px; border-radius: 8px; border: 1px solid #ccc; }
+    button { background-color: #0d6efd; color: white; cursor: pointer; }
+    button:hover { background-color: #0b5ed7; }
+  </style>
+</head>
+<body>
+  <h2>📋 تسجيل الحضور</h2>
+  <input id="studentId" placeholder="رقم الطالب"><br>
+  <input id="studentName" placeholder="اسم الطالب"><br>
+  <button onclick="recordAttendance()">تسجيل ✅</button>
+
+  <div id="result"></div>
+
+  <script>
+    // استخراج sessionId من الرابط
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get("session");
+
+    async function recordAttendance() {
+      const payload = {
+        sessionId,
+        studentId: document.getElementById("studentId").value,
+        studentName: document.getElementById("studentName").value
+      };
+
+      try {
+        const res = await fetch("/record-attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (data.status === "success") {
+          document.getElementById("result").innerHTML = "<h3>✅ تم تسجيل حضورك بنجاح!</h3>";
+        } else {
+          document.getElementById("result").innerHTML = "<h3>⚠️ حدث خطأ أثناء التسجيل!</h3>";
+        }
+      } catch (err) {
+        alert("⚠️ خطأ في الاتصال بالسيرفر: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
