@@ -1,80 +1,90 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const QRCode = require("qrcode");
-const XLSX = require("xlsx");
-const app = express();
+import express from "express";
+import fs from "fs";
+import path from "path";
+import cors from "cors";
 
+const app = express();
 app.use(express.json());
+app.use(cors());
 app.use(express.static("public"));
 
-// مسار ملف الجلسات
+const __dirname = path.resolve();
 const sessionsFile = path.join(__dirname, "sessions.json");
 
-// تحميل الجلسات
 let sessions = [];
 if (fs.existsSync(sessionsFile)) {
-  const data = fs.readFileSync(sessionsFile);
-  sessions = JSON.parse(data);
+  sessions = JSON.parse(fs.readFileSync(sessionsFile));
 }
 
-// 🔹 إنشاء جلسة جديدة
-app.post("/create-session", async (req, res) => {
-  const { subject, group, teacher, lat, lng, duration } = req.body;
+// ✅ إنشاء جلسة جديدة
+app.post("/create-session", (req, res) => {
+  try {
+    const { subject, sessionId, teacher, lat, lng, radius, duration } = req.body;
 
-  if (!subject || !group || !teacher || !lat || !lng || !duration) {
-    return res.status(400).json({ error: "البيانات ناقصة" });
+    if (!subject || !sessionId || !teacher) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const newSession = {
+      id: Date.now(),
+      subject,
+      sessionId,
+      teacher,
+      lat,
+      lng,
+      radius,
+      duration,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 🔗 توليد الرابط الصحيح للجلسة
+    const sessionURL = `https://attendance-system-production-a0d1.up.railway.app/student.html?sessionId=${newSession.id}`;
+    newSession.url = sessionURL;
+
+    // حفظ الجلسة في الملف
+    sessions.push(newSession);
+    fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+
+    console.log("✅ Session created:", newSession);
+
+    res.json({ url: sessionURL });
+  } catch (err) {
+    console.error("❌ Error creating session:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-
-  const sessionId = Date.now().toString();
-  const expiration = Date.now() + duration * 60000;
-
-  const newSession = { sessionId, subject, group, teacher, lat, lng, expiration, students: [] };
-  sessions.push(newSession);
-  fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
-
-  // ✅ تعديل الرابط إلى رابط Railway
-const qrData = `https://attendance-system-production-a0d1.up.railway.app/student.html?sessionId=${sessionId}`;
-  const qrCode = await QRCode.toDataURL(qrData);
-
-  res.json({ url: qrData, qr: qrCode });
 });
 
-// 🔹 تسجيل حضور طالب
+// ✅ تسجيل حضور الطالب
 app.post("/mark-attendance", (req, res) => {
-  const { sessionId, studentId, studentName } = req.body;
+  try {
+    const { studentId, studentName, sessionId } = req.body;
+    if (!studentId || !studentName || !sessionId)
+      return res.status(400).json({ error: "Missing fields" });
 
-  if (!sessionId || !studentId || !studentName) {
-    return res.status(400).json({ error: "البيانات ناقصة" });
+    const session = sessions.find(s => s.id == sessionId);
+    if (!session)
+      return res.status(404).json({ error: "Session not found" });
+
+    if (!session.attendance) session.attendance = [];
+    const already = session.attendance.find(s => s.studentId == studentId);
+    if (already)
+      return res.json({ status: "already" });
+
+    session.attendance.push({ studentId, studentName, time: new Date().toISOString() });
+    fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+
+    res.json({ status: "success" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server Error" });
   }
-
-  const session = sessions.find((s) => s.sessionId === sessionId);
-
-  if (!session) {
-    return res.status(404).json({ error: "الجلسة غير موجودة" });
-  }
-
-  if (Date.now() > session.expiration) {
-    return res.status(400).json({ error: "انتهى وقت الجلسة" });
-  }
-
-  if (session.students.find((s) => s.studentId === studentId)) {
-    return res.status(400).json({ error: "الطالب مسجل بالفعل" });
-  }
-
-  session.students.push({ studentId, studentName });
-  fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
-
-  res.json({ status: "success" });
 });
 
-// 🔹 عرض جميع الجلسات
-app.get("/sessions", (req, res) => {
+// ✅ عرض جدول الحضور
+app.get("/attendance-data", (req, res) => {
   res.json(sessions);
 });
 
-// تشغيل السيرفر على المنفذ المطلوب
+// ✅ تشغيل السيرفر
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
