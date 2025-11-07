@@ -91,13 +91,15 @@
         alert("⚠️ الرجاء تعبئة جميع الحقول!");
         return;
       }
+
       if (!payload.lat || !payload.lng) {
         alert("📍 الرجاء السماح بالوصول إلى الموقع قبل إنشاء الجلسة!");
         return;
       }
 
       try {
-        const res = await fetch("https://attendance-system-production-a0d1.up.railway.app/create-session", {
+        // 🔧 استخدم نفس الدومين الحالي مباشرة بدل ما نكتب الرابط كامل
+        const res = await fetch("/create-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -108,6 +110,7 @@
 
         if (!data.url) {
           qrDiv.innerHTML = "<p style='color:red;'>⚠️ حدث خطأ أثناء توليد الرابط!</p>";
+          console.error("Server response:", data);
           return;
         }
 
@@ -125,10 +128,10 @@
 
       } catch (err) {
         alert("❌ حدث خطأ أثناء توليد الكود: " + err.message);
+        console.error(err);
       }
     }
 
-    // زر كلمة المرور للوصول لصفحة الحضور
     function goToAttendance() {
       const password = prompt("🔐 أدخل كلمة المرور لعرض جدول الحضور:");
       if (password === "admin123") {
