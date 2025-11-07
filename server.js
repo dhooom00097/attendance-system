@@ -1,75 +1,80 @@
-// 📦 الاستدعاءات
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const QRCode = require("qrcode");
 const XLSX = require("xlsx");
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// إعداد الخادم
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"));
 
-// 🧩 إنشاء جلسة جديدة
+// مسار ملف الجلسات
+const sessionsFile = path.join(__dirname, "sessions.json");
+
+// تحميل الجلسات
+let sessions = [];
+if (fs.existsSync(sessionsFile)) {
+  const data = fs.readFileSync(sessionsFile);
+  sessions = JSON.parse(data);
+}
+
+// 🔹 إنشاء جلسة جديدة
 app.post("/create-session", async (req, res) => {
-  try {
-    const { courseName, section, teacherName, lat, lng, radiusMeters, minutesValid } = req.body;
-    const sessionId = Date.now().toString();
-    const url = `${req.protocol}://${req.get("host")}/student.html?session=${sessionId}`;
-    const qrImage = await QRCode.toDataURL(url);
+  const { subject, group, teacher, lat, lng, duration } = req.body;
 
-    res.json({ sessionId, url, qrImage });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (!subject || !group || !teacher || !lat || !lng || !duration) {
+    return res.status(400).json({ error: "البيانات ناقصة" });
   }
+
+  const sessionId = Date.now().toString();
+  const expiration = Date.now() + duration * 60000;
+
+  const newSession = { sessionId, subject, group, teacher, lat, lng, expiration, students: [] };
+  sessions.push(newSession);
+  fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+
+  // ✅ تعديل الرابط إلى رابط Railway
+  const qrData = `https://attendance-system-production-a0d1.up.railway.app/attendance.html?sessionId=${sessionId}`;
+  const qrCode = await QRCode.toDataURL(qrData);
+
+  res.json({ url: qrData, qr: qrCode });
 });
 
-// 🧾 تسجيل الحضور
-app.post("/record-attendance", (req, res) => {
+// 🔹 تسجيل حضور طالب
+app.post("/mark-attendance", (req, res) => {
   const { sessionId, studentId, studentName } = req.body;
 
-  const filePath = path.join(__dirname, "attendance.xlsx");
-  let workbook;
-
-  if (fs.existsSync(filePath)) {
-    workbook = XLSX.readFile(filePath);
-  } else {
-    workbook = XLSX.utils.book_new();
+  if (!sessionId || !studentId || !studentName) {
+    return res.status(400).json({ error: "البيانات ناقصة" });
   }
 
-  let sheet = workbook.Sheets["Attendance"];
-  let data = sheet ? XLSX.utils.sheet_to_json(sheet) : [];
+  const session = sessions.find((s) => s.sessionId === sessionId);
 
-  data.push({
-    Time: new Date().toLocaleString(),
-    Session: sessionId,
-    StudentID: studentId,
-    StudentName: studentName
-  });
+  if (!session) {
+    return res.status(404).json({ error: "الجلسة غير موجودة" });
+  }
 
-  const newSheet = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.book_append_sheet(workbook, newSheet, "Attendance");
-  XLSX.writeFile(workbook, filePath);
+  if (Date.now() > session.expiration) {
+    return res.status(400).json({ error: "انتهى وقت الجلسة" });
+  }
+
+  if (session.students.find((s) => s.studentId === studentId)) {
+    return res.status(400).json({ error: "الطالب مسجل بالفعل" });
+  }
+
+  session.students.push({ studentId, studentName });
+  fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
 
   res.json({ status: "success" });
 });
 
-// 📋 عرض جدول الحضور
-app.get("/getAttendance", (req, res) => {
-  try {
-    const filePath = path.join(__dirname, "attendance.xlsx");
-    const workbook = XLSX.readFile(filePath);
-    const sheet = workbook.Sheets["Attendance"];
-    const data = XLSX.utils.sheet_to_json(sheet);
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "فشل تحميل ملف الحضور" });
-  }
+// 🔹 عرض جميع الجلسات
+app.get("/sessions", (req, res) => {
+  res.json(sessions);
 });
 
-// 🚀 تشغيل السيرفر
+// تشغيل السيرفر على المنفذ المطلوب
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
