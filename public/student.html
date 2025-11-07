@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <title>تسجيل حضور الطالب</title>
   <style>
-    body { font-family: "Cairo", sans-serif; text-align: center; background: #f4f4f4; margin-top: 60px; }
-    input, button { margin: 6px; padding: 10px; font-size: 16px; width: 250px; border-radius: 8px; border: 1px solid #ccc; }
-    button { background-color: #0d6efd; color: white; cursor: pointer; }
-    button:hover { background-color: #0b5ed7; }
+    body{font-family:"Cairo",sans-serif;text-align:center;background:#f4f4f4;margin-top:60px}
+    input,button{margin:6px;padding:10px;font-size:16px;width:260px;border-radius:8px;border:1px solid #ccc}
+    button{background:#0d6efd;color:#fff;cursor:pointer}
+    button:hover{background:#0b5ed7}
+    #result{margin-top:12px}
   </style>
 </head>
 <body>
@@ -15,37 +16,44 @@
   <input id="studentId" placeholder="رقم الطالب"><br>
   <input id="studentName" placeholder="اسم الطالب"><br>
   <button onclick="recordAttendance()">تسجيل ✅</button>
-
   <div id="result"></div>
 
   <script>
-    // استخراج sessionId من الرابط
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get("session");
+    // ✅ قراءة sessionId من رابط الـ QR
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("sessionId");
 
-    async function recordAttendance() {
+    async function recordAttendance(){
+      // تحقّق سريع
+      if(!sessionId){
+        alert("⚠️ رابط الجلسة غير صالح (sessionId مفقود). أعد مسح الـ QR من جديد.");
+        return;
+      }
       const payload = {
         sessionId,
-        studentId: document.getElementById("studentId").value,
-        studentName: document.getElementById("studentName").value
+        studentId: document.getElementById("studentId").value.trim(),
+        studentName: document.getElementById("studentName").value.trim()
       };
+      if(!payload.studentId || !payload.studentName){
+        alert("⚠️ الرجاء تعبئة رقم واسم الطالب قبل التسجيل.");
+        return;
+      }
 
-      try {
-        const res = await fetch("/mark-attendance", {
-
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+      try{
+        const res = await fetch("https://attendance-system-production-a0d1.up.railway.app/mark-attendance",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
           body: JSON.stringify(payload)
         });
 
         const data = await res.json();
-
-        if (data.status === "success") {
+        if(data.status === "success"){
           document.getElementById("result").innerHTML = "<h3>✅ تم تسجيل حضورك بنجاح!</h3>";
-        } else {
-          document.getElementById("result").innerHTML = "<h3>⚠️ حدث خطأ أثناء التسجيل!</h3>";
+        }else{
+          document.getElementById("result").innerHTML = `<h3>⚠️ حدث خطأ أثناء التسجيل!</h3><div style="opacity:.6">${data.error||""}</div>`;
+          console.log("Server response:", data);
         }
-      } catch (err) {
+      }catch(err){
         alert("⚠️ خطأ في الاتصال بالسيرفر: " + err.message);
       }
     }
