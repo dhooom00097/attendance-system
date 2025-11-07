@@ -1,17 +1,16 @@
-import express from "express";
-import fs from "fs";
-import path from "path";
-import cors from "cors";
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const cors = require("cors");
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.static("public"));
 
-const __dirname = path.resolve();
 const sessionsFile = path.join(__dirname, "sessions.json");
-
 let sessions = [];
+
 if (fs.existsSync(sessionsFile)) {
   sessions = JSON.parse(fs.readFileSync(sessionsFile));
 }
@@ -37,16 +36,15 @@ app.post("/create-session", (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    // 🔗 توليد الرابط الصحيح للجلسة
+    // 🔗 توليد رابط الطالب الصحيح
     const sessionURL = `https://attendance-system-production-a0d1.up.railway.app/student.html?sessionId=${newSession.id}`;
     newSession.url = sessionURL;
 
-    // حفظ الجلسة في الملف
+    // حفظ الجلسة في ملف
     sessions.push(newSession);
     fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
 
     console.log("✅ Session created:", newSession);
-
     res.json({ url: sessionURL });
   } catch (err) {
     console.error("❌ Error creating session:", err);
@@ -61,21 +59,25 @@ app.post("/mark-attendance", (req, res) => {
     if (!studentId || !studentName || !sessionId)
       return res.status(400).json({ error: "Missing fields" });
 
-    const session = sessions.find(s => s.id == sessionId);
+    const session = sessions.find((s) => s.id == sessionId);
     if (!session)
       return res.status(404).json({ error: "Session not found" });
 
     if (!session.attendance) session.attendance = [];
-    const already = session.attendance.find(s => s.studentId == studentId);
+    const already = session.attendance.find((s) => s.studentId == studentId);
     if (already)
       return res.json({ status: "already" });
 
-    session.attendance.push({ studentId, studentName, time: new Date().toISOString() });
-    fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+    session.attendance.push({
+      studentId,
+      studentName,
+      time: new Date().toISOString(),
+    });
 
+    fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
     res.json({ status: "success" });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error in attendance:", err);
     res.status(500).json({ error: "Server Error" });
   }
 });
