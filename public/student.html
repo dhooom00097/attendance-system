@@ -31,7 +31,8 @@
       };
 
       try {
-        const res = await fetch("/record-attendance", {
+        const res = await fetch("/mark-attendance", {
+
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
