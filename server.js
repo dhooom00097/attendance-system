@@ -34,7 +34,7 @@ app.post("/create-session", async (req, res) => {
   fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
 
   // ✅ تعديل الرابط إلى رابط Railway
-  const qrData = `https://attendance-system-production-a0d1.up.railway.app/attendance.html?sessionId=${sessionId}`;
+const qrData = `https://attendance-system-production-a0d1.up.railway.app/student.html?sessionId=${sessionId}`;
   const qrCode = await QRCode.toDataURL(qrData);
 
   res.json({ url: qrData, qr: qrCode });
