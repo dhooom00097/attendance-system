@@ -44,50 +44,48 @@
     // 🔹 إنشاء الجلسة
     async function createSession() {
       const payload = {
-        action: 'createSession',
-        courseName: document.getElementById('course').value,
-        section: document.getElementById('section').value,
-        teacherName: document.getElementById('teacher').value,
+        subject: document.getElementById('course').value,
+        group: document.getElementById('section').value,
+        teacher: document.getElementById('teacher').value,
         lat: parseFloat(document.getElementById('lat').value),
         lng: parseFloat(document.getElementById('lng').value),
-        radiusMeters: parseFloat(document.getElementById('radius').value),
-        minutesValid: parseFloat(document.getElementById('minutes').value)
+        duration: parseFloat(document.getElementById('minutes').value)
       };
 
       // ✅ تحقق من القيم قبل الإرسال
-      if (
-        isNaN(payload.lat) || 
-        isNaN(payload.lng) || 
-        isNaN(payload.radiusMeters) || 
-        isNaN(payload.minutesValid)
-      ) {
-        alert("⚠️ تأكد من إدخال الإحداثيات والأرقام بشكل صحيح (مثال: 24.7136)");
+      if (!payload.subject || !payload.group || !payload.teacher) {
+        alert("⚠️ الرجاء تعبئة جميع الحقول النصية");
         return;
       }
 
-      // ✅ تأكد أن الإحداثيات موجودة
-      if (!payload.lat || !payload.lng) {
-        alert("📍 جاري تحديد موقعك... الرجاء الانتظار ثواني ثم المحاولة مرة أخرى");
+      if (isNaN(payload.lat) || isNaN(payload.lng) || isNaN(payload.duration)) {
+        alert("⚠️ تأكد من إدخال الأرقام بشكل صحيح");
         return;
       }
 
       try {
-        const res = await fetch('/create-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res = await fetch("https://attendance-system-production-a0d1.up.railway.app/create-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
 
         const data = await res.json();
 
-        const qrDiv = document.getElementById('qr');
-        qrDiv.innerHTML = `<h3>رابط الجلسة:</h3><p>${data.url}</p>`;
-        const qr = new QRious({
-          element: document.createElement('canvas'),
-          value: data.url,
-          size: 250
-        });
-        qrDiv.appendChild(qr.element);
+        const qrDiv = document.getElementById("qr");
+
+        if (data && data.qr && data.url) {
+          qrDiv.innerHTML = `<h3>🔗 رابط الجلسة:</h3><a href="${data.url}" target="_blank">${data.url}</a><br><br>`;
+          const qr = new QRious({
+            element: document.createElement("canvas"),
+            value: data.url,
+            size: 250
+          });
+          qrDiv.appendChild(qr.element);
+        } else {
+          qrDiv.innerHTML = "<h3>⚠️ فشل في إنشاء الجلسة، تحقق من السيرفر.</h3>";
+          console.log("Server response:", data);
+        }
 
       } catch (err) {
         alert("❌ حدث خطأ أثناء إنشاء الجلسة: " + err.message);
