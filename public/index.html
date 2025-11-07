@@ -8,70 +8,65 @@
       font-family: "Cairo", sans-serif;
       text-align: center;
       margin: 40px;
-      background-color: #f4f6f9;
+      background-color: #f5f7fa;
     }
     input, button {
       padding: 10px;
       margin: 8px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid #ccc;
       font-size: 16px;
       width: 250px;
     }
     button {
-      background-color: #007bff;
-      color: white;
-      border: none;
       cursor: pointer;
+      transition: 0.3s;
     }
     button:hover {
-      background-color: #0056b3;
+      opacity: 0.9;
     }
     #qr {
       margin-top: 25px;
     }
+    .create-btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+    }
     .admin-btn {
       background-color: #28a745;
-      margin-top: 20px;
-    }
-    .admin-btn:hover {
-      background-color: #1e7e34;
+      color: white;
+      border: none;
+      margin-top: 15px;
     }
   </style>
 </head>
 <body>
   <h2>🎓 إنشاء جلسة حضور جديدة</h2>
 
-  <input id="subject" placeholder="اسم المادة">
-  <br>
-  <input id="sessionId" placeholder="رقم الجلسة">
-  <br>
-  <input id="teacher" placeholder="اسم المعلم">
-  <br>
-  <input id="radius" placeholder="نصف قطر السماح (متر)">
-  <br>
-  <input id="duration" placeholder="مدة الجلسة (دقائق)">
-  <br>
-  <button onclick="createSession()">✅ توليد الكود</button>
+  <input id="subject" placeholder="اسم المادة"><br>
+  <input id="sessionId" placeholder="رقم الجلسة"><br>
+  <input id="teacher" placeholder="اسم المعلم"><br>
+  <input id="lat" placeholder="خط العرض (تلقائي)" readonly><br>
+  <input id="lng" placeholder="خط الطول (تلقائي)" readonly><br>
+  <input id="radius" placeholder="نصف قطر السماح (متر)"><br>
+  <input id="duration" placeholder="مدة الجلسة (دقائق)"><br>
+
+  <button class="create-btn" onclick="createSession()">✅ توليد الكود</button>
 
   <div id="qr"></div>
 
-  <!-- زر عرض الحضور -->
   <button class="admin-btn" onclick="goToAttendance()">🧾 عرض جدول الحضور</button>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script>
-    // متغيرات الموقع
-    let currentLat = null;
-    let currentLng = null;
-
-    // نحاول الحصول على موقع المستخدم
+    // تحديد الموقع تلقائياً وتعبئته في الحقول
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          currentLat = pos.coords.latitude;
-          currentLng = pos.coords.longitude;
-          console.log("📍 الموقع:", currentLat, currentLng);
+          document.getElementById('lat').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('lng').value = pos.coords.longitude.toFixed(6);
+          console.log("✅ الموقع:", pos.coords.latitude, pos.coords.longitude);
         },
         (err) => {
           alert("⚠️ لم يتم السماح بالوصول إلى الموقع!");
@@ -83,13 +78,13 @@
 
     async function createSession() {
       const payload = {
-        subject: document.getElementById('subject').value,
-        sessionId: document.getElementById('sessionId').value,
-        teacher: document.getElementById('teacher').value,
-        lat: currentLat,
-        lng: currentLng,
-        radius: parseInt(document.getElementById('radius').value),
-        duration: parseInt(document.getElementById('duration').value)
+        subject: document.getElementById("subject").value,
+        sessionId: document.getElementById("sessionId").value,
+        teacher: document.getElementById("teacher").value,
+        lat: parseFloat(document.getElementById("lat").value),
+        lng: parseFloat(document.getElementById("lng").value),
+        radius: parseInt(document.getElementById("radius").value),
+        duration: parseInt(document.getElementById("duration").value),
       };
 
       if (!payload.subject || !payload.sessionId || !payload.teacher) {
@@ -133,9 +128,9 @@
       }
     }
 
-    // 🔒 زر الوصول إلى جدول الحضور
+    // زر كلمة المرور للوصول لصفحة الحضور
     function goToAttendance() {
-      const password = prompt("🔐 أدخل كلمة المرور للدخول إلى جدول الحضور:");
+      const password = prompt("🔐 أدخل كلمة المرور لعرض جدول الحضور:");
       if (password === "admin123") {
         window.location.href = "attendance.html";
       } else {
