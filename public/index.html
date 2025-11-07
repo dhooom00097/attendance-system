@@ -48,10 +48,6 @@
   <br>
   <input id="teacher" placeholder="اسم المعلم">
   <br>
-  <input id="lat" placeholder="خط العرض">
-  <br>
-  <input id="lng" placeholder="خط الطول">
-  <br>
   <input id="radius" placeholder="نصف قطر السماح (متر)">
   <br>
   <input id="duration" placeholder="مدة الجلسة (دقائق)">
@@ -65,19 +61,43 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script>
+    // متغيرات الموقع
+    let currentLat = null;
+    let currentLng = null;
+
+    // نحاول الحصول على موقع المستخدم
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          currentLat = pos.coords.latitude;
+          currentLng = pos.coords.longitude;
+          console.log("📍 الموقع:", currentLat, currentLng);
+        },
+        (err) => {
+          alert("⚠️ لم يتم السماح بالوصول إلى الموقع!");
+        }
+      );
+    } else {
+      alert("المتصفح لا يدعم تحديد الموقع!");
+    }
+
     async function createSession() {
       const payload = {
         subject: document.getElementById('subject').value,
         sessionId: document.getElementById('sessionId').value,
         teacher: document.getElementById('teacher').value,
-        lat: parseFloat(document.getElementById('lat').value),
-        lng: parseFloat(document.getElementById('lng').value),
+        lat: currentLat,
+        lng: currentLng,
         radius: parseInt(document.getElementById('radius').value),
         duration: parseInt(document.getElementById('duration').value)
       };
 
       if (!payload.subject || !payload.sessionId || !payload.teacher) {
         alert("⚠️ الرجاء تعبئة جميع الحقول!");
+        return;
+      }
+      if (!payload.lat || !payload.lng) {
+        alert("📍 الرجاء السماح بالوصول إلى الموقع قبل إنشاء الجلسة!");
         return;
       }
 
@@ -90,6 +110,12 @@
 
         const data = await res.json();
         const qrDiv = document.getElementById("qr");
+
+        if (!data.url) {
+          qrDiv.innerHTML = "<p style='color:red;'>⚠️ حدث خطأ أثناء توليد الرابط!</p>";
+          return;
+        }
+
         qrDiv.innerHTML = `
           <h3>📎 رابط الجلسة:</h3>
           <a href="${data.url}" target="_blank">${data.url}</a><br><br>
