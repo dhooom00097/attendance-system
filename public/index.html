@@ -2,142 +2,66 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>🎓 إنشاء جلسة حضور جديدة</title>
+  <title>إنشاء جلسة حضور جديدة 🎓</title>
   <style>
-    body {
-      font-family: "Cairo", sans-serif;
-      text-align: center;
-      margin: 40px;
-      background-color: #f5f7fa;
-    }
-    input, button {
-      padding: 10px;
-      margin: 8px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-      width: 250px;
-    }
-    button {
-      cursor: pointer;
-      transition: 0.3s;
-    }
-    button:hover {
-      opacity: 0.9;
-    }
-    #qr {
-      margin-top: 25px;
-    }
-    .create-btn {
-      background-color: #007bff;
-      color: white;
-      border: none;
-    }
-    .admin-btn {
-      background-color: #28a745;
-      color: white;
-      border: none;
-      margin-top: 15px;
-    }
+    body { font-family: "Tajawal", sans-serif; background: #f4f6f8; text-align: center; padding: 40px; }
+    input, button { padding: 10px; margin: 5px; width: 250px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+    button { cursor: pointer; border: none; }
+    .btn-blue { background: #007bff; color: white; }
+    .btn-green { background: #28a745; color: white; }
+    #qrLink a { color: #007bff; text-decoration: none; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 </head>
 <body>
-  <h2>🎓 إنشاء جلسة حضور جديدة</h2>
+  <h2>إنشاء جلسة حضور جديدة 🎓</h2>
 
-  <input id="subject" placeholder="اسم المادة"><br>
-  <input id="sessionId" placeholder="رقم الجلسة"><br>
-  <input id="teacher" placeholder="اسم المعلم"><br>
-  <input id="lat" placeholder="خط العرض (تلقائي)" readonly><br>
-  <input id="lng" placeholder="خط الطول (تلقائي)" readonly><br>
-  <input id="radius" placeholder="نصف قطر السماح (متر)"><br>
-  <input id="duration" placeholder="مدة الجلسة (دقائق)"><br>
+  <input id="subject" placeholder="اسم المادة">
+  <input id="sessionNumber" placeholder="رقم الجلسة">
+  <input id="teacher" placeholder="اسم المعلم">
+  <input id="latitude" placeholder="خط العرض">
+  <input id="longitude" placeholder="خط الطول">
+  <input id="radius" placeholder="نصف قطر السماح (متر)">
+  <input id="duration" placeholder="مدة الجلسة (دقائق)">
 
-  <button class="create-btn" onclick="createSession()">✅ توليد الكود</button>
+  <br>
+  <button class="btn-blue" onclick="createSession()">✅ توليد الكود</button>
+  <p id="qrLink" style="color:red"></p>
 
-  <div id="qr"></div>
+  <button class="btn-green" onclick="window.location.href='attendance.html'">📋 عرض جدول الحضور</button>
 
-  <button class="admin-btn" onclick="goToAttendance()">🧾 عرض جدول الحضور</button>
+  <canvas id="qr" style="margin-top:20px;"></canvas>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script>
-    // تحديد الموقع تلقائياً وتعبئته في الحقول
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          document.getElementById('lat').value = pos.coords.latitude.toFixed(6);
-          document.getElementById('lng').value = pos.coords.longitude.toFixed(6);
-          console.log("✅ الموقع:", pos.coords.latitude, pos.coords.longitude);
-        },
-        (err) => {
-          alert("⚠️ لم يتم السماح بالوصول إلى الموقع!");
-        }
-      );
-    } else {
-      alert("المتصفح لا يدعم تحديد الموقع!");
-    }
-
     async function createSession() {
       const payload = {
         subject: document.getElementById("subject").value,
-        sessionId: document.getElementById("sessionId").value,
+        sessionNumber: document.getElementById("sessionNumber").value,
         teacher: document.getElementById("teacher").value,
-        lat: parseFloat(document.getElementById("lat").value),
-        lng: parseFloat(document.getElementById("lng").value),
-        radius: parseInt(document.getElementById("radius").value),
-        duration: parseInt(document.getElementById("duration").value),
+        latitude: parseFloat(document.getElementById("latitude").value),
+        longitude: parseFloat(document.getElementById("longitude").value),
+        radius: parseFloat(document.getElementById("radius").value),
+        duration: parseFloat(document.getElementById("duration").value)
       };
 
-      if (!payload.subject || !payload.sessionId || !payload.teacher) {
-        alert("⚠️ الرجاء تعبئة جميع الحقول!");
-        return;
-      }
-
-      if (!payload.lat || !payload.lng) {
-        alert("📍 الرجاء السماح بالوصول إلى الموقع قبل إنشاء الجلسة!");
-        return;
-      }
-
       try {
-        // 🔧 استخدم نفس الدومين الحالي مباشرة بدل ما نكتب الرابط كامل
-        const res = await fetch("/create-session", {
+        const res = await fetch("https://attendance-system-production-83ea.up.railway.app/create-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload)
         });
 
         const data = await res.json();
-        const qrDiv = document.getElementById("qr");
-
-        if (!data.url) {
-          qrDiv.innerHTML = "<p style='color:red;'>⚠️ حدث خطأ أثناء توليد الرابط!</p>";
-          console.error("Server response:", data);
-          return;
+        if (data.status === "success") {
+          const link = `https://attendance-system-production-83ea.up.railway.app/student.html?sessionId=${data.sessionId}`;
+          document.getElementById("qrLink").innerHTML = `📎 <a href="${link}" target="_blank">${link}</a>`;
+          new QRious({ element: document.getElementById("qr"), value: link, size: 200 });
+        } else {
+          document.getElementById("qrLink").innerHTML = `⚠️ ${data.message}`;
         }
-
-        qrDiv.innerHTML = `
-          <h3>📎 رابط الجلسة:</h3>
-          <a href="${data.url}" target="_blank">${data.url}</a><br><br>
-        `;
-
-        const qr = new QRious({
-          element: document.createElement("canvas"),
-          value: data.url,
-          size: 250
-        });
-        qrDiv.appendChild(qr.element);
-
       } catch (err) {
-        alert("❌ حدث خطأ أثناء توليد الكود: " + err.message);
+        document.getElementById("qrLink").innerHTML = "⚠️ حدث خطأ أثناء توليد الرابط!";
         console.error(err);
-      }
-    }
-
-    function goToAttendance() {
-      const password = prompt("🔐 أدخل كلمة المرور لعرض جدول الحضور:");
-      if (password === "admin123") {
-        window.location.href = "attendance.html";
-      } else {
-        alert("❌ كلمة المرور٧ غير صحيحة!");
       }
     }
   </script>
