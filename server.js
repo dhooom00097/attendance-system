@@ -4,6 +4,7 @@ const path = require("path");
 const cors = require("cors");
 
 const app = express();
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
