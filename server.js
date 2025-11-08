@@ -1,96 +1,115 @@
+// ✅ استيراد المكتبات الأساسية
 const express = require("express");
-const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
-
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.set("trust proxy", true);
 
+// ✅ المنفذ (Railway يوفّره تلقائيًا)
 const PORT = process.env.PORT || 3000;
+
+// ✅ إعداد الميدل وير
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public"))); // مجلد الصفحات
+
+// ✅ ملف تخزين الجلسات
 const sessionsFile = path.join(__dirname, "sessions.json");
 
-// قراءة الجلسات
-function readSessions() {
-  if (!fs.existsSync(sessionsFile)) return [];
-  return JSON.parse(fs.readFileSync(sessionsFile, "utf8") || "[]");
+// ✅ تحميل الجلسات من الملف
+function loadSessions() {
+  try {
+    if (!fs.existsSync(sessionsFile)) return [];
+    const data = fs.readFileSync(sessionsFile);
+    return JSON.parse(data);
+  } catch (err) {
+    console.error("❌ خطأ أثناء قراءة الجلسات:", err);
+    return [];
+  }
 }
 
-// حفظ الجلسات
+// ✅ حفظ الجلسات في الملف
 function saveSessions(sessions) {
-  fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+  try {
+    fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+  } catch (err) {
+    console.error("❌ خطأ أثناء حفظ الجلسات:", err);
+  }
 }
 
-// إنشاء جلسة جديدة
+// ✅ إنشاء جلسة حضور جديدة
 app.post("/create-session", (req, res) => {
-  const { subject, sessionNumber, teacher, latitude, longitude, radius, duration } = req.body;
-  if (!subject || !sessionNumber || !teacher)
-    return res.status(400).json({ status: "error", message: "البيانات غير مكتملة" });
+  const sessionData = req.body;
+  if (!sessionData.sessionId || !sessionData.teacher) {
+    return res.status(400).json({ status: "error", message: "بيانات الجلسة ناقصة" });
+  }
 
-  const sessions = readSessions();
-  const sessionId = Date.now().toString();
-  const newSession = {
-    sessionId,
-    subject,
-    sessionNumber,
-    teacher,
-    latitude,
-    longitude,
-    radius,
-    duration,
-    createdAt: new Date(),
-    students: [],
-  };
-  sessions.push(newSession);
+  const sessions = loadSessions();
+  sessions.push(sessionData);
   saveSessions(sessions);
-  res.json({ status: "success", sessionId });
+
+  res.json({ status: "success", message: "✅ تم إنشاء الجلسة بنجاح" });
 });
 
-// تسجيل حضور الطالب
+// ✅ تسجيل حضور الطالب
 app.post("/mark-attendance", (req, res) => {
-  const { studentId, studentName, sessionId } = req.body;
-  if (!studentId || !studentName || !sessionId)
-    return res.status(400).json({ status: "error", message: "البيانات غير مكتملة" });
+  const { sessionId, studentId, studentName } = req.body;
 
-  const sessions = readSessions();
-  const session = sessions.find((s) => s.sessionId === sessionId);
-  if (!session)
+  if (!sessionId || !studentId || !studentName) {
+    return res.status(400).json({ status: "error", message: "بيانات ناقصة" });
+  }
+
+  const sessions = loadSessions();
+  const session = sessions.find(s => s.sessionId === sessionId);
+
+  if (!session) {
     return res.status(404).json({ status: "error", message: "الجلسة غير موجودة" });
+  }
 
-  if (session.students.find((s) => s.studentId === studentId))
-    return res.json({ status: "error", message: "تم تسجيل الحضور مسبقاً" });
+  session.attendance = session.attendance || [];
 
-  session.students.push({
+  const alreadyExists = session.attendance.find(a => a.studentId === studentId);
+  if (alreadyExists) {
+    return res.json({ status: "duplicate", message: "⚠️ الطالب مسجل مسبقًا" });
+  }
+
+  session.attendance.push({
     studentId,
     studentName,
-    time: new Date().toLocaleString("ar-SA"),
+    time: new Date().toLocaleString("ar-SA")
   });
+
   saveSessions(sessions);
-  res.json({ status: "success" });
+  res.json({ status: "success", message: "✅ تم تسجيل الحضور بنجاح" });
 });
 
-// عرض الجلسات
-app.get("/attendance", (req, res) => {
-  res.json(readSessions());
+// ✅ استرجاع كل بيانات الحضور (للجدول)
+app.get("/getAttendance", (req, res) => {
+  const sessions = loadSessions();
+  const allAttendance = [];
+
+  sessions.forEach(session => {
+    if (session.attendance && Array.isArray(session.attendance)) {
+      session.attendance.forEach(a => {
+        allAttendance.push({
+          Time: a.time || "-",
+          Session: session.sessionId || "-",
+          ID: a.studentId || "-",
+          Name: a.studentName || "-",
+          Teacher: session.teacher || "-"
+        });
+      });
+    }
+  });
+
+  // ✅ إرجاع النتيجة كـ JSON صافي
+  res.json(allAttendance);
 });
 
-// ✅ هذا الجزء الجديد: عرض أي ملف HTML تلقائياً
-app.use(express.static(path.join(__dirname, "public")));
-app.use(express.static(__dirname));
-
-// عرض الصفحة الرئيسية
+// ✅ الصفحة الرئيسية الافتراضية
 app.get("/", (req, res) => {
-  const indexPath1 = path.join(__dirname, "index.html");
-  const indexPath2 = path.join(__dirname, "public", "index.html");
-
-  if (fs.existsSync(indexPath1)) {
-    res.sendFile(indexPath1);
-  } else if (fs.existsSync(indexPath2)) {
-    res.sendFile(indexPath2);
-  } else {
-    res.status(404).send("index.html غير موجود 🔴");
-  }
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// ✅ تشغيل السيرفر
+app.listen(PORT, () => {
+  console.log(`🚀 Attendance server running on port ${PORT}`);
+});
