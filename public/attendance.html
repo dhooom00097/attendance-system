@@ -46,23 +46,44 @@
   </table>
 
   <script>
-    fetch('/getAttendance')
-      .then(res => res.json())
-      .then(data => {
+    async function loadAttendance() {
+      try {
+        // ✅ رابط السيرفر الصحيح
+        const res = await fetch("https://attendance-system-production-83ea.up.railway.app/getAttendance");
+        
+        // نتأكد أن الاستجابة JSON صحيحة
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          console.error("❌ السيرفر أرسل رد غير صالح:", text);
+          alert("⚠️ حدث خطأ أثناء تحميل البيانات: الرد من السيرفر غير صالح.");
+          return;
+        }
+
+        // ✅ عرض البيانات في الجدول
         const tbody = document.querySelector('#attendanceTable tbody');
+        tbody.innerHTML = ""; // تنظيف الجدول أولًا
         data.forEach(row => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${row.Time}</td>
-            <td>${row.Session}</td>
-            <td>${row.ID}</td>
-            <td>${row.Name}</td>
+            <td>${row.Time || '-'}</td>
+            <td>${row.Session || '-'}</td>
+            <td>${row.ID || '-'}</td>
+            <td>${row.Name || '-'}</td>
             <td>${row.Teacher || '-'}</td>
           `;
           tbody.appendChild(tr);
         });
-      })
-      .catch(err => alert('حدث خطأ أثناء تحميل البيانات: ' + err));
+
+      } catch (err) {
+        alert('⚠️ حدث خطأ أثناء تحميل البيانات: ' + err.message);
+        console.error(err);
+      }
+    }
+
+    loadAttendance();
   </script>
 </body>
 </html>
