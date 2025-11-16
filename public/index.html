@@ -33,8 +33,15 @@
   <canvas id="qr" style="margin-top:20px;"></canvas>
 
   <script>
+    // توليد معرّف فريد للجلسة
+    function generateSessionId() {
+      return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
     async function createSession() {
+      const sessionId = generateSessionId();
       const payload = {
+        sessionId: sessionId,
         subject: document.getElementById("subject").value,
         sessionNumber: document.getElementById("sessionNumber").value,
         teacher: document.getElementById("teacher").value,
@@ -44,8 +51,14 @@
         duration: parseFloat(document.getElementById("duration").value)
       };
 
+      // التحقق من البيانات المطلوبة
+      if (!payload.subject || !payload.teacher || !payload.sessionNumber) {
+        document.getElementById("qrLink").innerHTML = "⚠️ الرجاء تعبئة جميع الحقول المطلوبة!";
+        return;
+      }
+
       try {
-        const res = await fetch("https://attendance-system-production-83ea.up.railway.app/create-session", {
+        const res = await fetch("/create-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -53,7 +66,8 @@
 
         const data = await res.json();
         if (data.status === "success") {
-          const link = `https://attendance-system-production-83ea.up.railway.app/student.html?sessionId=${data.sessionId}`;
+          const baseUrl = window.location.origin;
+          const link = `${baseUrl}/student.html?sessionId=${sessionId}`;
           document.getElementById("qrLink").innerHTML = `📎 <a href="${link}" target="_blank">${link}</a>`;
           new QRious({ element: document.getElementById("qr"), value: link, size: 200 });
         } else {

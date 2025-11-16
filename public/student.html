@@ -61,8 +61,8 @@
       }
 
       try {
-        // ✅ تم التعديل هنا فقط
-        const res = await fetch("https://attendance-system-production-83ea.up.railway.app/mark-attendance", {
+        // ✅ استخدام رابط نسبي
+        const res = await fetch("/mark-attendance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

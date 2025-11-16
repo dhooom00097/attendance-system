@@ -1,5 +1,6 @@
 // ✅ استيراد المكتبات الأساسية
 const express = require("express");
+const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const app = express();
@@ -8,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ✅ إعداد الميدل وير
+app.use(cors()); // تفعيل CORS
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public"))); // مجلد الصفحات
 
@@ -38,11 +40,37 @@ function saveSessions(sessions) {
 // ✅ إنشاء جلسة حضور جديدة
 app.post("/create-session", (req, res) => {
   const sessionData = req.body;
-  if (!sessionData.sessionId || !sessionData.teacher) {
+
+  // التحقق من البيانات المطلوبة
+  if (!sessionData.sessionId || !sessionData.teacher || !sessionData.subject || !sessionData.sessionNumber) {
     return res.status(400).json({ status: "error", message: "بيانات الجلسة ناقصة" });
   }
 
+  // التحقق من صحة الأرقام
+  if (sessionData.latitude && isNaN(sessionData.latitude)) {
+    return res.status(400).json({ status: "error", message: "خط العرض غير صالح" });
+  }
+  if (sessionData.longitude && isNaN(sessionData.longitude)) {
+    return res.status(400).json({ status: "error", message: "خط الطول غير صالح" });
+  }
+  if (sessionData.radius && (isNaN(sessionData.radius) || sessionData.radius <= 0)) {
+    return res.status(400).json({ status: "error", message: "نصف القطر غير صالح" });
+  }
+  if (sessionData.duration && (isNaN(sessionData.duration) || sessionData.duration <= 0)) {
+    return res.status(400).json({ status: "error", message: "مدة الجلسة غير صالحة" });
+  }
+
+  // التحقق من عدم تكرار الجلسة
   const sessions = loadSessions();
+  const existingSession = sessions.find(s => s.sessionId === sessionData.sessionId);
+  if (existingSession) {
+    return res.status(400).json({ status: "error", message: "معرّف الجلسة موجود مسبقاً" });
+  }
+
+  // إضافة وقت الإنشاء
+  sessionData.createdAt = new Date().toISOString();
+  sessionData.attendance = [];
+
   sessions.push(sessionData);
   saveSessions(sessions);
 

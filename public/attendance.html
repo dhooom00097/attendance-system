@@ -48,8 +48,8 @@
   <script>
     async function loadAttendance() {
       try {
-        // ✅ رابط السيرفر الصحيح
-        const res = await fetch("https://attendance-system-production-83ea.up.railway.app/getAttendance");
+        // ✅ استخدام رابط نسبي
+        const res = await fetch("/getAttendance");
         
         // نتأكد أن الاستجابة JSON صحيحة
         const text = await res.text();
